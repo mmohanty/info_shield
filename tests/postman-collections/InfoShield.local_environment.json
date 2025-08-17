@@ -1,0 +1,13 @@
+{
+  "id": "4af2fa8e-3881-49da-a140-50734271264c",
+  "name": "InfoShield Local",
+  "_postman_variable_scope": "environment",
+  "_postman_exported_using": "ChatGPT",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "enabled": true
+    }
+  ]
+}

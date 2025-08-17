@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "info_shield"
+version = "0.1.0"
+description = "Information Shield - Guardrail scanner with regex + NLP + GUI/API"
+authors = [
+  { name = "Manas Mohanty", email = "manasmohanty07@gmail.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.13"
+keywords = ["regex", "nlp", "pii", "redaction", "security", "fastapi", "spacy"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+# Keep base runtime dependencies empty; users select extras
+dependencies = []
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.5"]
+gui = ["PyQt5>=5.15"]
+nlp = [
+  "spacy>=3.7",
+  # Optional: install model directly, or run `python -m spacy download en_core_web_sm`
+  "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl",
+]
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["info_shield*"]
+
+[tool.setuptools.package-data]
+# Include any non-Python files (templates, configs) later if needed
+info_shield = []
+
+[project.scripts]
+info_shield = "info_shield.cli:main"
+info_shield-gui = "info_shield.gui.app:main"

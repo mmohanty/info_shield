@@ -25,12 +25,15 @@ class PatternRegistry:
         from .patterns.builtin_secrets import get_patterns as sec
         from .patterns.builtin_network import get_patterns as net
         from .patterns.builtin_safety import get_patterns as safety
+        from .patterns.builtin_exact import get_patterns as exact
+
         reg = PatternRegistry()
         reg.bulk_register(pii())
         reg.bulk_register(fin())
         reg.bulk_register(sec())
         reg.bulk_register(net())
         reg.bulk_register(safety())
+        reg.bulk_register(exact())
         return reg
 
 class NlpRuleRegistry:

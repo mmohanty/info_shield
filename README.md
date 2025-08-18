@@ -1,6 +1,6 @@
 # 🛡️ InfoShield
 
-**InfoShield** is a modular **guardrail service** that detects and redacts sensitive information such as **PII, financial data, secrets, and jailbreak prompts** using **regex patterns** and optional **NLP (spaCy)** rules.
+**InfoShield** is a modular **guardrail service** that detects and redacts sensitive information such as **PII, financial data, secrets, watermarks, and jailbreak prompts** using **regex patterns**, **exact match rules**, and optional **NLP (spaCy)** rules.
 It supports **CLI, REST API (FastAPI), and GUI (PyQt5)**.
 
 ---
@@ -8,8 +8,9 @@ It supports **CLI, REST API (FastAPI), and GUI (PyQt5)**.
 ## ✨ Features
 
 * 🔍 **Regex-based detection**: email, phone, Aadhaar, PAN, credit card (Luhn validated), IPv4, JWT, AWS keys, and more.
+* 🎯 **Exact match detection**: watermark phrases, banned keywords, hardcoded secrets.
 * 🤖 **NLP support (spaCy)**: detect person names, prompt injections, jailbreak heuristics.
-* 🛠️ **Extensible**: easily add new regex patterns or NLP rules.
+* 🛠️ **Extensible**: easily add new regex patterns, NLP rules, or exact match lists.
 * 🖥️ **Multiple interfaces**:
 
   * **CLI** for scripting and automation
@@ -34,7 +35,7 @@ pip install -e ".[api,gui,nlp]"
 
 ```bash
 python -m info_shield.cli \
-  --scan-text "Email a@b.com PAN ABCDE1234F 4111111111111111" \
+  --scan-text "Email a@b.com PAN ABCDE1234F 4111111111111111 ConfidentialWatermark" \
   --redact --format json
 ```
 
@@ -88,7 +89,7 @@ python -m info_shield.cli \
 2. Define `get_patterns()`:
 
 ```python
-from info_shield.model import PatternDef
+from info_shield.patterns.base import PatternDef
 
 def get_patterns():
     return [
@@ -108,7 +109,7 @@ def get_patterns():
 1. Add new class in `info_shield/nlp/spacy_rules.py`:
 
 ```python
-from info_shield.model import BaseNlpRule
+from info_shield.nlp.base import BaseNlpRule
 
 class LocationRule(BaseNlpRule):
     name = "location_ner"
@@ -117,6 +118,37 @@ class LocationRule(BaseNlpRule):
 ```
 
 2. Register in `NlpRuleRegistry.load_builtin()`.
+
+### ➕ Exact Match Rule
+
+1. Create file: `info_shield/exact/watermark.py`
+2. Define list of banned terms:
+
+```python
+EXACT_TERMS = [
+    "ConfidentialWatermark",
+    "InternalOnly",
+    "DoNotShare"
+]
+```
+
+3. Or use an **external JSON file** (`watermarks_ci.json`) to manage phrases dynamically.
+
+📄 Example `watermarks_ci.json`:
+
+```json
+{
+  "phrases": [
+    "ConfidentialWatermark",
+    "InternalOnly",
+    "DoNotShare",
+    "TopSecret",
+    "CompanyProprietary"
+  ]
+}
+```
+
+4. Implement loader in `ExactMatchRegistry` to scan for these terms in text.
 
 ---
 
@@ -128,6 +160,7 @@ info_shield/
 │── cli.py      # CLI entrypoint
 │── gui/        # PyQt5 GUI
 │── patterns/   # Regex rules
+│── exact/      # Exact match rules
 │── nlp/        # NLP rules (spaCy)
 │── tests/      # Pytest cases
 pyproject.toml
@@ -143,10 +176,11 @@ POST /scan
 Content-Type: application/json
 
 {
-  "text": "My email is john@example.com and PAN is ABCDE1234F.",
+  "text": "My email is john@example.com and PAN is ABCDE1234F. ConfidentialWatermark",
   "options": {
     "redact": true,
-    "include_regex": ["email", "india_pan"]
+    "include_regex": ["email", "india_pan"],
+    "include_exact": ["watermark"]
   }
 }
 ```
@@ -157,7 +191,8 @@ Response:
 {
   "matches": [
     {"type": "email", "value": "john@example.com", "redacted": "j***@example.com"},
-    {"type": "india_pan", "value": "ABCDE1234F", "redacted": "A*******F"}
+    {"type": "india_pan", "value": "ABCDE1234F", "redacted": "A*******F"},
+    {"type": "exact_watermark", "value": "ConfidentialWatermark", "redacted": "[REDACTED]"}
   ]
 }
 ```
@@ -169,6 +204,7 @@ Response:
 * [ ] Add policy-based rule sets (HIPAA, PCI, GDPR presets)
 * [ ] Add PDF/Doc ingestion
 * [ ] Add vectorized semantic jailbreak detection
+* [ ] Add external dictionary/blacklist support for exact terms
 
 ---
 

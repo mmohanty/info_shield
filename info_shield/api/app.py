@@ -1,6 +1,6 @@
 from __future__ import annotations
 try:
-    from fastapi import FastAPI, Body
+    from fastapi import FastAPI, Body, HTTPException
     from pydantic import BaseModel, Field
 except Exception as e:  # pragma: no cover
     raise SystemExit("FastAPI not installed. Run: pip install fastapi uvicorn pydantic")
@@ -10,9 +10,11 @@ from ..registry import PatternRegistry, NlpRuleRegistry
 from ..scanner import GuardrailScanner
 from ..redactor import Redactor
 from ..model import MatchResult
+from typing import List, Optional, Dict, Any
 
 class ScanOptions(BaseModel):
     redact: bool = False
+    scan_all: bool = False
     include_regex: Optional[List[str]] = None
     include_nlp: Optional[List[str]] = None
 
@@ -25,9 +27,31 @@ class ScanBase64Request(BaseModel):
     content_base64: str = Field(...)
     options: Optional[ScanOptions] = None
 
+
+# ---------------- Response Models ----------------
+
+class MatchModel(BaseModel):
+    rule_name: str
+    match_text: str
+    start: int
+    end: int
+    type: Optional[str] = None       # maps from scanner "category"
+    severity: Optional[str] = None   # maps from scanner "severity"
+    metadata: Optional[Dict[str, Any]] = None  # line, col, preview, valid
+
+class UsedRulesModel(BaseModel):
+    regex: List[str]
+    nlp: List[str]
+
+class CountsModel(BaseModel):
+    total_matches: int
+
 class ScanResponse(BaseModel):
-    matches: List[dict]
+    filename: Optional[str] = None
+    matches: List[MatchModel]
     redacted_text: Optional[str] = None
+    counts: CountsModel
+    used_rules: UsedRulesModel
 
 app = FastAPI(title="Regex Guardrail Service", version="1.0.0")
 
@@ -39,35 +63,23 @@ _NLP_REG = NlpRuleRegistry.load_builtin()
 
 def _select_rules(opts: Optional[ScanOptions]):
     """
-    Rule selection logic shared by /scan and /scan-document:
-      - If scan_all=True -> ALL regex + ALL NLP
-      - Else, if no include lists are supplied at all -> ALL regex (+ NLP if installed)
-      - Else, filter by include lists
+    Rule selection used by both endpoints:
+      - If scan_all=True => ALL regex + ALL NLP.
+      - Else if options missing or no include_* provided => ALL regex + ALL NLP (friendly default).
+      - Else => filter to includes.
     """
-    if not opts or opts.scan_all or (
-        not opts.include_regex and not opts.include_nlp
-    ):
-        regex_defs = _pattern_reg_all()
-        nlp_rules = _nlp_reg_all()
-        return regex_defs, nlp_rules
+    if (opts is None) or opts.scan_all or (not (opts.include_regex or opts.include_nlp)):
+        return _all_regex(), _all_nlp()
 
-    regex_defs = (
-        [p for p in _pattern_reg_all() if p.name in set(opts.include_regex or [])]
-        if (opts.include_regex is not None)
-        else []
-    )
-    nlp_rules = (
-        [r for r in _nlp_reg_all() if r.name in set(opts.include_nlp or [])]
-        if (opts.include_nlp is not None)
-        else []
-    )
+    regex_defs = [p for p in _all_regex() if p.name in set(opts.include_regex or [])]
+    nlp_rules = [r for r in _all_nlp() if r.name in set(opts.include_nlp or [])]
     return regex_defs, nlp_rules
 
-def _pattern_reg_all():
+def _all_regex():
     # central place if you later add dynamic packs or feature flags
     return _PATTERN_REG.list_all()
 
-def _nlp_reg_all():
+def _all_nlp():
     # NlpRuleRegistry.load_builtin() already handles optional spaCy
     try:
         return _NLP_REG.list_all()
@@ -75,25 +87,65 @@ def _nlp_reg_all():
         return []
 
 
+def _scan_and_optionally_redact(text: str, regex_defs, nlp_rules, redact: bool):
+    scanner = GuardrailScanner(regex_defs, nlp_rules)
+    matches = [m.__dict__ for m in scanner.scan_text(text)]
+    redacted_text = None
+    if redact:
+        redacted_text = Redactor(regex_defs).apply(text, [MatchResult(**m) for m in matches])
+    return matches, redacted_text
+
+
+# --- helper mapper (put near your other helpers) ---
+def to_match_model(m: Dict[str, Any]) -> MatchModel:
+    """Map scanner dict -> MatchModel."""
+    return MatchModel(
+        rule_name = m.get("pattern") or m.get("rule") or m.get("name") or "unknown",
+        match_text = m.get("value") or m.get("match") or "",
+        start = int(m.get("start", 0)),
+        end = int(m.get("end", 0)),
+        type = m.get("category"),
+        severity = m.get("severity"),
+        metadata = {
+            k: v for k, v in m.items()
+            if k in ("line", "col", "preview", "valid", "confidence", "source")
+        }
+    )
+
 @app.post("/scan", response_model=ScanResponse)
 def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
     regex_defs, nlp_rules = _select_rules(payload.options)
-    scanner = GuardrailScanner(regex_defs, nlp_rules)
-    matches = [m.__dict__ for m in scanner.scan_text(payload.text)]
-    redacted = None
-    if payload.options and payload.options.redact:
-        redacted = Redactor(regex_defs).apply(payload.text, [MatchResult(**m) for m in matches])
-    return ScanResponse(matches=matches, redacted_text=redacted)
+    redact = bool(payload.options.redact) if payload.options else False
+    matches_dicts, redacted = _scan_and_optionally_redact(payload.text, regex_defs, nlp_rules, redact)
+    return ScanResponse(
+        matches=[to_match_model(m) for m in matches_dicts],
+        redacted_text=redacted,
+        counts=CountsModel(total_matches=len(matches_dicts)),
+        used_rules=UsedRulesModel(
+            regex=[p.name for p in regex_defs],
+            nlp=[r.name for r in nlp_rules],
+        ),
+    )
 
 @app.post("/scan/base64", response_model=ScanResponse)
 def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
-    raw = base64.b64decode(payload.content_base64)
-    text = raw.decode("utf-8", errors="replace")
+    try:
+        raw = base64.b64decode(payload.content_base64)
+        text = raw.decode("utf-8", errors="replace")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 or non-UTF8 content: {e}")
 
     regex_defs, nlp_rules = _select_rules(payload.options)
-    scanner = GuardrailScanner(regex_defs, nlp_rules)
-    matches = [m.__dict__ for m in scanner.scan_text(text)]
-    redacted = None
-    if payload.options and payload.options.redact:
-        redacted = Redactor(regex_defs).apply(text, [MatchResult(**m) for m in matches])
-    return ScanResponse(matches=matches, redacted_text=redacted)
+    redact = bool(payload.options.redact) if payload.options else False
+    matches_dicts, redacted = _scan_and_optionally_redact(text, regex_defs, nlp_rules, redact)
+
+    return ScanResponse(
+        filename=payload.filename,
+        matches=[to_match_model(m) for m in matches_dicts],
+        redacted_text=redacted,
+        counts=CountsModel(total_matches=len(matches_dicts)),
+        used_rules=UsedRulesModel(
+            regex=[p.name for p in regex_defs],
+            nlp=[r.name for r in nlp_rules],
+        ),
+    )

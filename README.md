@@ -160,7 +160,7 @@ info_shield/
 │── cli.py      # CLI entrypoint
 │── gui/        # PyQt5 GUI
 │── patterns/   # Regex rules
-│── exact/      # Exact match rules
+│── keywords/   # Exact match rules
 │── nlp/        # NLP rules (spaCy)
 │── tests/      # Pytest cases
 pyproject.toml

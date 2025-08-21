@@ -1,32 +1,28 @@
-flowchart LR
-  REQ["Incoming Request (/scan, /scan-base64)"]
-  META["File Metadata (filename, mimetype, size)"]
+flowchart TD
+    A1[/"Incoming Request: /scan, /scan-base64"/]
 
-  SCAN["GuardrailScanner"]
+    %% Rule selection
+    A1 --> B1["Select Rules (Regex, Keywords, NLP)"]
 
-  subgraph RULES["Rules"]
-    direction TB
-    subgraph REGEX["Regex Rules"]
-      R1["Regex Pattern A\n+ Preprocessors: [Lowercase, StripZW]"]
-      R2["Regex Pattern B\n+ Preprocessors: [Deaccent]"]
-    end
-    subgraph KEYWORD["Keyword Rules"]
-      K1["Keyword Set X\n+ Preprocessors: [NormalizeWhitespace]"]
-      K2["Keyword Set Y\n+ Preprocessors: [ToLower, Deaccent]"]
-    end
-    NLP["NLP Rules"]
-  end
+    %% Preprocessing
+    B1 --> P1["Apply Preprocessors (Normalize, Lowercase, Strip ZWSP, etc.)"]
 
-  VAL{"Validators"}
-  RED["Redactor (optional)"]
-  RESP["ScanResponse (matches, counts, redacted_text, used_rules, metadata)"]
+    %% Scanners
+    P1 --> S2[_scan_regex]
+    P1 --> S3[_scan_keywords]
+    P1 --> S4[_scan_nlp]
 
-  REQ --> META --> SCAN
-  REQ --> SCAN
-  SCAN --> R1 --> VAL
-  SCAN --> R2 --> VAL
-  SCAN --> K1 --> VAL
-  SCAN --> K2 --> VAL
-  SCAN --> NLP --> VAL
-  VAL -->|valid==true| RED --> RESP
-  VAL -->|valid==true| RESP
+    %% Validators
+    S2 --> V1[Validators]
+    S3 --> V1
+    S4 --> V1
+
+    %% Validation filter
+    V1 -->|Valid| R1[Collect Results]
+    V1 -->|Invalid| D1[Discard]
+
+    %% Optional Redaction
+    R1 --> Red[Optional Redactor]
+
+    %% Final Response
+    Red --> Out1["ScanResponse (matches, redacted, counts, used_rules)"]

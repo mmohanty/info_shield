@@ -89,7 +89,7 @@ python -m info_shield.cli \
 2. Define `get_patterns()`:
 
 ```python
-from info_shield.patterns.base import PatternDef
+from info_shield.model import PatternDef
 
 def get_patterns():
     return [
@@ -109,7 +109,7 @@ def get_patterns():
 1. Add new class in `info_shield/nlp/spacy_rules.py`:
 
 ```python
-from info_shield.nlp.base import BaseNlpRule
+from info_shield.model import BaseNlpRule
 
 class LocationRule(BaseNlpRule):
     name = "location_ner"
@@ -198,6 +198,9 @@ Response:
 ```
 
 ---
+##  Flow Diagram
+![img.png](img.png)
+
 
 ## 🧩 Roadmap
 
@@ -207,6 +210,7 @@ Response:
 * [ ] Add external dictionary/blacklist support for exact terms
 
 ---
+
 
 ## 📜 License
 

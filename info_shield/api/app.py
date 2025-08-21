@@ -5,8 +5,9 @@ try:
 except Exception as e:  # pragma: no cover
     raise SystemExit("FastAPI not installed. Run: pip install fastapi uvicorn pydantic")
 import base64
-from typing import List, Optional
-from ..registry import PatternRegistry, NlpRuleRegistry
+from info_shield.patterns.registry import PatternRegistry
+from info_shield.nlp.registry import NlpRuleRegistry
+from info_shield.keywords.registry import KeywordRegistry
 from ..scanner import GuardrailScanner
 from ..redactor import Redactor
 from ..model import MatchResult
@@ -20,6 +21,7 @@ class ScanOptions(BaseModel):
     scan_all: bool = False
     include_regex: Optional[List[str]] = None
     include_nlp: Optional[List[str]] = None
+    include_keywords: Optional[List[str]] = None
     # NEW: arbitrary metadata, e.g. {"filename": "...", "mime_type": "...", "size": 12345}
     file_meta: Optional[Dict[str, Any]] = None
 
@@ -47,6 +49,7 @@ class MatchModel(BaseModel):
 class UsedRulesModel(BaseModel):
     regex: List[str]
     nlp: List[str]
+    keywords: List[str]
 
 class CountsModel(BaseModel):
     total_matches: int
@@ -64,7 +67,7 @@ app = FastAPI(title="Regex Guardrail Service", version="1.0.0")
 # Load registries once (you can reload on demand if you hot-add rules)
 _PATTERN_REG = PatternRegistry.load_builtin()
 _NLP_REG = NlpRuleRegistry.load_builtin()
-
+_KW_REG = KeywordRegistry.load_builtin()
 
 def _select_rules(opts: Optional[ScanOptions]):
     """
@@ -74,12 +77,14 @@ def _select_rules(opts: Optional[ScanOptions]):
       - Else => filter to includes.
     """
     if (opts is None) or opts.scan_all or (not (opts.include_regex or opts.include_nlp)):
-        return _all_regex(), _all_nlp()
+        return _all_regex(), _all_nlp(), _all_keywords()
 
     regex_defs = [p for p in _all_regex() if p.name in set(opts.include_regex or [])]
-    keyword_defs = get_keyword_packs()
     nlp_rules = [r for r in _all_nlp() if r.name in set(opts.include_nlp or [])]
+    keyword_defs = [k for k in _all_keywords() if k.name in set(opts.include_keywords or [])] \
+        if (opts and opts.include_keywords is not None) else []
     return regex_defs, nlp_rules, keyword_defs
+
 
 def _all_regex():
     # central place if you later add dynamic packs or feature flags
@@ -92,6 +97,8 @@ def _all_nlp():
     except Exception:
         return []
 
+def _all_keywords():
+    return _KW_REG.list_all()
 
 def _scan_and_optionally_redact(text: str, regex_defs,
                                 nlp_rules, redact: bool,
@@ -151,6 +158,7 @@ def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
         used_rules=UsedRulesModel(
             regex=[p.name for p in regex_defs],
             nlp=[r.name for r in nlp_rules],
+            keywords=[k.name for k in keyword_defs],
         ),
     )
 
@@ -180,5 +188,6 @@ def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
         used_rules=UsedRulesModel(
             regex=[p.name for p in regex_defs],
             nlp=[r.name for r in nlp_rules],
+            keywords=[k.name for k in keyword_defs],
         ),
     )

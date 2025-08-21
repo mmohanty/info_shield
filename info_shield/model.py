@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Callable, Optional, Pattern, Tuple, List
+from dataclasses import dataclass, field
+from typing import Callable, Optional, Pattern, List
 import re
 from .config import PARTIAL_MASK_CHAR, PARTIAL_MASK_KEEP_LAST
 
@@ -26,13 +26,34 @@ class PatternDef:
     severity: str  # low | medium | high | critical
     regex: str
     flags: int = re.MULTILINE
-    validators: Tuple[Validator, ...] = ()
+    #validators: Tuple[Validator, ...] = ()
+    validators: List[str] = field(default_factory=list)  # NEW
+    preprocessors: Optional[List[str]] = None
     redact: Optional[str] = None
     partial_mask: bool = False
 
     def compile(self) -> Pattern[str]:
         return re.compile(self.regex, self.flags)
 
+@dataclass
+class KeywordDef:
+    """
+    Keyword-based pattern: match if ANY of 'phrases' appears.
+    - phrases: list of literal substrings (NOT regex), we escape them internally
+    - case_sensitive: False (default) -> IGNORECASE
+    - whole_word: add \b boundaries around each phrase if True
+    - preprocessors: per-pattern preprocessor chain (like PatternDef.preprocessors)
+    """
+    name: str
+    phrases: List[str]
+    category: str = "Keyword"
+    severity: str = "medium"
+    description: Optional[str] = None
+    case_sensitive: bool = False
+    whole_word: bool = False
+    redact: Optional[str] = "[REDACTED]"
+    preprocessors: Optional[List[str]] = None
+    validators: List[str] = field(default_factory=list)  # NEW
 
 @dataclass
 class MatchResult:

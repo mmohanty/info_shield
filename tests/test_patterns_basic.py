@@ -1,6 +1,6 @@
 import re
-from regex_guardrail.registry import PatternRegistry
-from regex_guardrail.scanner import GuardrailScanner
+from info_shield.registry import PatternRegistry
+from info_shield.scanner import GuardrailScanner
 
 
 def test_email_detection(scanner):

@@ -1,0 +1,32 @@
+flowchart LR
+  REQ["Incoming Request (/scan, /scan-base64)"]
+  META["File Metadata (filename, mimetype, size)"]
+
+  SCAN["GuardrailScanner"]
+
+  subgraph RULES["Rules"]
+    direction TB
+    subgraph REGEX["Regex Rules"]
+      R1["Regex Pattern A\n+ Preprocessors: [Lowercase, StripZW]"]
+      R2["Regex Pattern B\n+ Preprocessors: [Deaccent]"]
+    end
+    subgraph KEYWORD["Keyword Rules"]
+      K1["Keyword Set X\n+ Preprocessors: [NormalizeWhitespace]"]
+      K2["Keyword Set Y\n+ Preprocessors: [ToLower, Deaccent]"]
+    end
+    NLP["NLP Rules"]
+  end
+
+  VAL{"Validators"}
+  RED["Redactor (optional)"]
+  RESP["ScanResponse (matches, counts, redacted_text, used_rules, metadata)"]
+
+  REQ --> META --> SCAN
+  REQ --> SCAN
+  SCAN --> R1 --> VAL
+  SCAN --> R2 --> VAL
+  SCAN --> K1 --> VAL
+  SCAN --> K2 --> VAL
+  SCAN --> NLP --> VAL
+  VAL -->|valid==true| RED --> RESP
+  VAL -->|valid==true| RESP

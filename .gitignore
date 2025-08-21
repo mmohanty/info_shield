@@ -1,2 +1,4 @@
 /info_shield.egg-info/
 /.env
+*.pyc
+*.DS_Store

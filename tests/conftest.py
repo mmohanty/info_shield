@@ -3,6 +3,10 @@ import sys
 import types
 import pytest
 
+from info_shield.preprocess.registry import PreprocessorRegistry
+from info_shield.validators.registry import ValidatorRegistry
+
+
 # Import shim: prefer regex_guardrail; if missing, alias info_shield as regex_guardrail
 try:
     import regex_guardrail as rg  # type: ignore
@@ -15,8 +19,8 @@ except Exception:  # pragma: no cover
     except Exception as e:
         pytest.skip("Neither regex_guardrail nor info_shield importable", allow_module_level=True)
 
-from regex_guardrail.registry import PatternRegistry, NlpRuleRegistry
-from regex_guardrail.scanner import GuardrailScanner
+from info_shield.registry import PatternRegistry, NlpRuleRegistry
+from info_shield.scanner import GuardrailScanner
 
 @pytest.fixture(scope="session")
 def pattern_registry():
@@ -30,8 +34,16 @@ def nlp_registry():
         pytest.skip("spaCy not installed; skipping NLP tests", allow_module_level=False)
 
 @pytest.fixture()
-def scanner(pattern_registry):
-    return GuardrailScanner(pattern_registry.list_all(), [])
+def scanner(pattern_registry,
+            preprocessors=None,
+            preproc_registry=None,
+            validators=None):
+    preproc_registry = preproc_registry or PreprocessorRegistry.load_builtin()
+    validator_registry = validators or ValidatorRegistry.load_builtin()
+    return GuardrailScanner(pattern_registry.list_all(), [],
+                            preprocessors=preprocessors or [],
+                            preproc_registry=preproc_registry,
+                            validators=validator_registry)
 
 @pytest.fixture()
 def sample_text():

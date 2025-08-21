@@ -1,4 +1,4 @@
-from regex_guardrail.redactor import Redactor
+from info_shield.redactor import Redactor
 
 
 def test_redaction_partial_mask(scanner):

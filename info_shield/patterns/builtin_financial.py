@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List
 from ..model import PatternDef
-from ..validators import luhn_check
+
 
 def get_patterns() -> List[PatternDef]:
     return [
@@ -11,7 +11,7 @@ def get_patterns() -> List[PatternDef]:
             category="Financial",
             severity="critical",
             regex=r"(?x)(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)",
-            validators=(luhn_check,),
+            validators=["luhn"],
             partial_mask=True,
         ),
         PatternDef(

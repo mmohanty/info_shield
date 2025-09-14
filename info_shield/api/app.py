@@ -5,20 +5,20 @@ try:
 except Exception as e:  # pragma: no cover
     raise SystemExit("FastAPI not installed. Run: pip install fastapi uvicorn pydantic")
 import base64
-from info_shield.patterns.registry import PatternRegistry
-from info_shield.nlp.registry import NlpRuleRegistry
-from info_shield.keywords.registry import KeywordRegistry
+from ..patterns.registry import PatternRegistry
+from ..nlp.registry import NlpRuleRegistry
+from ..keywords.registry import KeywordRegistry
 from ..scanner import GuardrailScanner
 from ..redactor import Redactor
 from ..model import MatchResult
 from typing import List, Optional, Dict, Any
 from info_shield.preprocess.registry import PreprocessorRegistry
 from info_shield.validators.registry import ValidatorRegistry
-from info_shield.keywords.builtin_packs import get_keyword_packs
 
 class ScanOptions(BaseModel):
     redact: bool = False
     scan_all: bool = False
+    preprocessor: Optional[List[str]] = None
     include_regex: Optional[List[str]] = None
     include_nlp: Optional[List[str]] = None
     include_keywords: Optional[List[str]] = None
@@ -45,6 +45,7 @@ class MatchModel(BaseModel):
     type: Optional[str] = None       # maps from scanner "category"
     severity: Optional[str] = None   # maps from scanner "severity"
     metadata: Optional[Dict[str, Any]] = None  # line, col, preview, valid
+    likelihood: str = "Likely"  # default, values: "MostLikely", "Likely", "Possible"
 
 class UsedRulesModel(BaseModel):
     regex: List[str]
@@ -134,6 +135,7 @@ def to_match_model(m: Dict[str, Any]) -> MatchModel:
         end = int(m.get("end", 0)),
         type = m.get("category"),
         severity = m.get("severity"),
+        likelihood = m.get("likelihood"),
         metadata = {
             k: v for k, v in m.items()
             if k in ("line", "col", "preview", "valid", "confidence", "source")
@@ -149,7 +151,7 @@ def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
         regex_defs,
         nlp_rules,
         redact,
-        preprocessors=payload.options.preprocessors if payload.options else None,
+        preprocessors=payload.options.preprocessors if payload.options and "preprocessors" in  payload.options else None,
         keyword_defs=keyword_defs)
     return ScanResponse(
         matches=[to_match_model(m) for m in matches_dicts],
@@ -177,7 +179,7 @@ def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
         regex_defs,
         nlp_rules,
         redact,
-        preprocessors=payload.options.preprocessors if payload.options else None,
+        preprocessors=payload.options.preprocessors if payload.options and "preprocessors" in  payload.options else None,
         keyword_defs=keyword_defs)
 
     return ScanResponse(

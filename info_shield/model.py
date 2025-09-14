@@ -31,6 +31,7 @@ class PatternDef:
     preprocessors: Optional[List[str]] = None
     redact: Optional[str] = None
     partial_mask: bool = False
+    confidence: float = 0.7  # 0.0–1.0 scale
 
     def compile(self) -> Pattern[str]:
         return re.compile(self.regex, self.flags)
@@ -67,6 +68,7 @@ class MatchResult:
     col: int
     preview: str
     valid: Optional[bool] = None
+    likelihood: str = "Likely"  # default, values: "MostLikely", "Likely", "Possible"
 
 
 # ---- NLP Rule Protocol ----

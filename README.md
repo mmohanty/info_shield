@@ -44,11 +44,13 @@ python -m info_shield.cli \
 ```bash
 python -m info_shield.gui.app
 ```
+### Pycharm Setup
+![img_1.png](img_1.png)
 
 ### 4. API
 
 ```bash
-uvicorn info_shield.api.app:app --reload --port 8080
+uvicorn info_shield.api.app:app --reload --port 8000
 ```
 
 ➡️ Open [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) for Swagger UI.

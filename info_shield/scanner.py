@@ -104,6 +104,7 @@ class GuardrailScanner:
         pdef = self._defs_by_name.get(mr.pattern)
         if not pdef or not getattr(pdef, "validators", None):
             mr.valid = True
+            mr.likelihood = "Likely" if pdef and pdef.confidence < 0.9 else "MostLikely"
             return mr
         ctx = {"full_text": full_text, "pattern_def": pdef, "match_span": (mr.start, mr.end)}
         for vname in pdef.validators:
@@ -113,9 +114,11 @@ class GuardrailScanner:
             res = v.validate(mr.value, context=ctx)
             if not res.ok:
                 mr.valid = False
+                mr.likelihood = "Unlikely"
                 mr.validation_reason = res.reason or vname
                 return mr
         mr.valid = True
+        mr.likelihood = "MostLikely" if res.score >= 0.9 else "Likely"
         return mr
 
     def _scan_keywords(self, text: str, *, context=None) -> List[MatchResult]:  # NEW

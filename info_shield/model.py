@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Pattern, List
+from typing import Callable, Optional, Pattern, List, Literal
 import re
 from .config import PARTIAL_MASK_CHAR, PARTIAL_MASK_KEEP_LAST
 
@@ -35,6 +35,35 @@ class PatternDef:
 
     def compile(self) -> Pattern[str]:
         return re.compile(self.regex, self.flags)
+
+
+LogicOp = Literal["AND", "OR"]  # (OPTIONAL: add "NAND","NOR" later)
+
+@dataclass
+class SubPattern:
+    name: str                     # local label used in the expression e.g. A/B/C
+    regex: str
+    flags: Optional[int] = None
+    preprocessors: Optional[List[str]] = None   # override or inherit
+    min_count: int = 1                           # support “at least N occurrences”
+    negate: bool = False                         # NOT this subpattern
+    confidence: float = 0.7                      # per-subpattern confidence
+
+
+@dataclass
+class CompositePatternDef:
+    name: str
+    category: str
+    severity: str = "medium"
+    description: Optional[str] = None
+    op: LogicOp = "AND"                          # top-level glue op for convenience
+    # Either use `op` for all, or set a free-form boolean expr below:
+    boolean_expr: Optional[str] = None           # e.g., "(A && B) || (A && C) && !D"
+    parts: List[SubPattern] = field(default_factory=list)
+    redact: Optional[str] = "[REDACTED]"
+    validators: List[str] = field(default_factory=list)
+    preprocessors: Optional[List[str]] = None    # default preproc for all parts
+
 
 @dataclass
 class KeywordDef:

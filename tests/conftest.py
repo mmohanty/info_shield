@@ -1,6 +1,4 @@
-import os
 import sys
-import types
 import pytest
 
 from info_shield.preprocess.registry import PreprocessorRegistry
@@ -19,7 +17,8 @@ except Exception:  # pragma: no cover
     except Exception as e:
         pytest.skip("Neither regex_guardrail nor info_shield importable", allow_module_level=True)
 
-from info_shield.registry import PatternRegistry, NlpRuleRegistry
+from info_shield.nlp.registry import NlpRuleRegistry
+from info_shield.patterns.registry import PatternRegistry
 from info_shield.scanner import GuardrailScanner
 
 @pytest.fixture(scope="session")

@@ -1,7 +1,8 @@
 import pytest
 
 spacy = pytest.importorskip("spacy", reason="spaCy not installed")
-from info_shield.registry import NlpRuleRegistry, PatternRegistry
+from info_shield.nlp.registry import NlpRuleRegistry
+from info_shield.patterns.registry import PatternRegistry
 from info_shield.scanner import GuardrailScanner
 
 

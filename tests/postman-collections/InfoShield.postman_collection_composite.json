@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "InfoShield API — Composite Patterns",
+    "_postman_id": "c0mposite-1111-2222-3333-444444444444",
+    "description": "Tests composite pattern matching (AND/OR) for InfoShield via /scan and /scan/base64.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8080" },
+    { "key": "wmkCompositeName", "value": "wmk_internal_and_donotshare" },
+    { "key": "secretOrJwtCompositeName", "value": "secret_or_jwt" }
+  ],
+  "item": [
+    {
+      "name": "01 — AND Composite (watermark) — should MATCH",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan", "host": ["{{baseUrl}}"], "path": ["scan"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"This file is INTERNAL ONLY and strictly DO NOT SHARE outside the org.\",\n  \"options\": {\"scan_all\": true}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "pm.expect(json).to.have.property('matches');",
+              "const target = '{{wmkCompositeName}}';",
+              "const hit = json.matches.find(m => (m.rule_name || m.pattern) === target);",
+              "pm.test('Composite found: ' + target, () => !!hit);",
+              "if (hit) {",
+              "  pm.expect(hit.valid === undefined || hit.valid === true).to.be.true;",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — AND Composite (watermark) — should NOT MATCH (missing one term)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan", "host": ["{{baseUrl}}"], "path": ["scan"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"This file is INTERNAL ONLY but share as needed.\",\n  \"options\": {\"scan_all\": true}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "const target = '{{wmkCompositeName}}';",
+              "const hit = (json.matches || []).find(m => (m.rule_name || m.pattern) === target);",
+              "pm.test('Composite NOT present when one term missing', () => !hit);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — OR Composite (secret or JWT) — MATCH via JWT",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan", "host": ["{{baseUrl}}"], "path": ["scan"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.aaaa.bbbb provided as token.\",\n  \"options\": {\"scan_all\": true}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "const target = '{{secretOrJwtCompositeName}}';",
+              "const hit = (json.matches || []).find(m => (m.rule_name || m.pattern) === target);",
+              "pm.test('Composite found (JWT branch): ' + target, () => !!hit);",
+              "if (hit) {",
+              "  pm.expect(hit.valid === undefined || hit.valid === true).to.be.true;",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — OR Composite (secret or JWT) — MATCH via Private Key phrase",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan", "host": ["{{baseUrl}}"], "path": ["scan"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"----BEGIN PRIVATE KEY---- abcdef ----END PRIVATE KEY----\",\n  \"options\": {\"scan_all\": true}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "const target = '{{secretOrJwtCompositeName}}';",
+              "const hit = (json.matches || []).find(m => (m.rule_name || m.pattern) === target);",
+              "pm.test('Composite found (Private Key branch): ' + target, () => !!hit);",
+              "if (hit) {",
+              "  pm.expect(hit.valid === undefined || hit.valid === true).to.be.true;",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — AND Composite (watermark) — Base64 (MATCH)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan/base64", "host": ["{{baseUrl}}"], "path": ["scan", "base64"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"filename\": \"doc.txt\",\n  \"content_base64\": \"VGhpcyBmaWxlIGlzIElOVEVSTkFMIE9OTFkgYW5kIHNob3VsZCBCRSBETyBOT1QgU0hBUkUu\",\n  \"options\": {\"scan_all\": true, \"file_meta\": {\"mime_type\": \"text/plain\"}}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "const target = '{{wmkCompositeName}}';",
+              "const hit = (json.matches || []).find(m => (m.rule_name || m.pattern) === target);",
+              "pm.test('Composite found in base64 text', () => !!hit);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Likelihood present on composite hits (optional)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/scan", "host": ["{{baseUrl}}"], "path": ["scan"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"internal only. do not share. BEGIN PRIVATE KEY\",\n  \"options\": {\"scan_all\": true}\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.code === 200);",
+              "const json = pm.response.json();",
+              "const allowed = new Set(['MostLikely','Likely','Possible','Unlikely']);",
+              "const composites = (json.matches || []).filter(m => [ '{{wmkCompositeName}}', '{{secretOrJwtCompositeName}}' ].includes(m.rule_name || m.pattern));",
+              "pm.test('At least one composite present', () => composites.length > 0);",
+              "composites.forEach(m => { pm.expect(m).to.have.property('likelihood'); pm.expect(allowed.has(m.likelihood)).to.be.true; });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

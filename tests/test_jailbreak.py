@@ -1,4 +1,5 @@
-from info_shield.registry import PatternRegistry, NlpRuleRegistry
+from info_shield.patterns.registry import PatternRegistry
+from info_shield.nlp.registry import  NlpRuleRegistry
 from info_shield.scanner import GuardrailScanner
 
 def test_jailbreak_regex_and_nlp():

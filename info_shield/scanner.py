@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Iterable, List, Optional, Pattern, Tuple, Any
 import re
-from .model import PatternDef, MatchResult, BaseNlpRule, KeywordDef
+from .model import PatternDef, MatchResult, BaseNlpRule, KeywordDef, CompositePatternDef
 from .config import MAX_FINDINGS_PER_PATTERN
 from .preprocess.registry import apply_chain, PreprocessorRegistry
 
@@ -14,12 +14,14 @@ class GuardrailScanner:
                  nlp_rules: Iterable[BaseNlpRule] | None = None,
                  max_findings_per_pattern: int = MAX_FINDINGS_PER_PATTERN,
                  keyword_defs: Optional[List[KeywordDef]] = None,
+                 composite_defs: Optional[List[CompositePatternDef]] = None,  # NEW
                  preprocessors: Optional[List[str]] = None,
                  preproc_registry: Optional[PreprocessorRegistry] = None,
                  validators=None,
                  ):
         self.pattern_defs: List[PatternDef] = list(pattern_defs)
         self.keyword_defs = keyword_defs or []
+        self.composite_defs = composite_defs or []  # NEW
         self.compiled: Dict[str, Pattern[str]] = {p.name: p.compile() for p in self.pattern_defs}
         self.nlp_rules: List[BaseNlpRule] = list(nlp_rules) if nlp_rules else []
         self.max_findings_per_pattern = max(1, int(max_findings_per_pattern))
@@ -41,6 +43,18 @@ class GuardrailScanner:
         right = min(len(text), end + window)
         return text[left:start] + "[" + text[start:end] + "]" + text[end:right]
 
+    # --- NEW: evaluate boolean expression ---
+    def _eval_boolean(self, expr: str, truth: Dict[str, bool]) -> bool:
+        # safe parser: replace tokens, allow only !, &&, ||, (, ), True/False, spaces
+        s = expr
+        for k, v in truth.items():
+            s = re.sub(fr"\b{k}\b", "True" if v else "False", s)
+        s = s.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
+        if re.search(r"[^\sA-Za-z()_\.]", s):  # crude guard
+            # still safe; we only allow True/False/and/or/not/() and spaces
+            pass
+        return bool(eval(s, {"__builtins__": {}}, {}))  # expression is controlled by your codebase
+
     def _resolve_chain_names(self, override: Optional[List[str]]) -> Tuple[str, ...]:
         # None -> inherit default; [] -> explicitly none; list -> that list
         if override is None:
@@ -58,6 +72,107 @@ class GuardrailScanner:
                 cache[chain_names] = (text, list(range(len(text))))
         return cache[chain_names]
 
+    def _resolve_chain(self, explicit: Optional[List[str]]) -> Tuple[str, ...]:
+        return tuple(self.default_preproc_chain if explicit is None else explicit)
+
+
+    def _scan_composites(self, text: str, *, context=None) -> List[MatchResult]:
+        results: List[MatchResult] = []
+        preproc_cache: Dict[Tuple[str, ...], Tuple[str, List[int]]] = {}
+
+        for cdef in self.composite_defs:
+            # run each subpattern with its own preprocessors
+            sub_hits: Dict[str, List[Tuple[int, int]]] = {}  # name -> list of (start,end) in original text
+            truth: Dict[str, bool] = {}
+            confs: Dict[str, float] = {}
+
+            for part in cdef.parts:
+                chain = self._resolve_chain(
+                    part.preprocessors if part.preprocessors is not None else cdef.preprocessors)
+                ptext, pmap = self._get_preprocessed(text, preproc_cache, chain, context=context)
+                rx = re.compile(part.regex, part.flags or 0)
+                hits = []
+                count = 0
+                for m in rx.finditer(ptext):
+                    pstart, pend = m.start(), m.end()
+                    start = pmap[pstart]
+                    end = pmap[pend - 1] + 1
+                    hits.append((start, end))
+                    count += 1
+                    if count >= self.max_findings_per_pattern:
+                        break
+                # evaluate subpattern success with min_count and optional NOT
+                ok = (len(hits) >= part.min_count)
+                if part.negate:
+                    ok = not ok
+                    # if negated, we generally have no spans; keep empty
+                    hits = [] if ok else hits
+
+                sub_hits[part.name] = hits
+                truth[part.name] = ok
+                confs[part.name] = part.confidence
+
+            # decide overall success
+            if cdef.boolean_expr:
+                overall_ok = self._eval_boolean(cdef.boolean_expr, truth)
+            else:
+                if cdef.op == "AND":
+                    overall_ok = all(truth.values()) if truth else False
+                else:
+                    overall_ok = any(truth.values()) if truth else False
+
+            if not overall_ok:
+                continue
+
+            # compute a span to highlight (union of all *positive* contributing parts)
+            contributing = []
+            for part in cdef.parts:
+                if part.negate:
+                    continue
+                if truth.get(part.name, False):
+                    contributing.extend(sub_hits.get(part.name, []))
+
+            if not contributing:
+                # If only negations satisfied the expr, we cannot highlight a span; skip or emit zero-length.
+                continue
+
+            start = min(s for s, _ in contributing)
+            end = max(e for _, e in contributing)
+            value = text[start:end]
+
+            # aggregate confidence -> likelihood
+            # simple rule: average of contributing confidences; cap by count
+            if contributing:
+                avg_conf = sum(confs[p.name] for p in cdef.parts if not p.negate and truth.get(p.name, False)) / \
+                           max(1, sum(1 for p in cdef.parts if not p.negate and truth.get(p.name, False)))
+            else:
+                avg_conf = 0.6
+
+            likelihood = "MostLikely" if avg_conf >= 0.9 else "Likely" if avg_conf >= 0.6 else "Possible"
+
+            mr = MatchResult(
+                pattern=cdef.name,
+                category=cdef.category,
+                severity=cdef.severity,
+                value=value,
+                start=start,
+                end=end,
+                line=text.count("\n", 0, start) + 1,
+                col=start - (text.rfind("\n", 0, start) + 1) + 1,
+                preview=text[max(0, start - 24):start] + "⟦" + value + "⟧" + text[end:end + 24],
+                valid=True,
+            )
+            mr.likelihood = likelihood
+
+            # optional validators at the composite level
+            if self.validators is not None and getattr(cdef, "validators", None):
+                mr = self._validate_match(mr, text)
+                if not mr.valid:
+                    continue
+
+            results.append(mr)
+
+        return results
     def _scan_regex(self, text: str, *, context=None) -> List[MatchResult]:
         results: List[MatchResult] = []
         cache: Dict[Tuple[str, ...], Tuple[str, List[int]]] = {}
@@ -185,6 +300,7 @@ class GuardrailScanner:
     def scan_text(self, text: str, *, preprocess_context: Optional[Dict[str, Any]] = None) -> List[MatchResult]:
         results = self._scan_regex(text, context=preprocess_context)
         results += self._scan_keywords(text, context=preprocess_context)
+        results += self._scan_composites(text, context=preprocess_context)  # NEW
         results += self._scan_nlp(text)
         severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         results.sort(key=lambda r: (severity_rank.get(r.severity, 9), r.start))

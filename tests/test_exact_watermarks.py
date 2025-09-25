@@ -1,4 +1,4 @@
-from info_shield.registry import PatternRegistry
+from info_shield.patterns.registry import PatternRegistry
 from info_shield.scanner import GuardrailScanner
 
 def test_exact_watermarks_detect_and_redact():

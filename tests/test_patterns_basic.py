@@ -1,8 +1,3 @@
-import re
-from info_shield.registry import PatternRegistry
-from info_shield.scanner import GuardrailScanner
-
-
 def test_email_detection(scanner):
     text = "reach me at a.b+test@example.co.in today"
     matches = [m for m in scanner.scan_text(text) if m.pattern == "email"]

@@ -6,6 +6,7 @@ except Exception as e:  # pragma: no cover
     raise SystemExit("FastAPI not installed. Run: pip install fastapi uvicorn pydantic")
 import base64
 from ..patterns.registry import PatternRegistry
+from ..patterns.composite.registry import CompositeRegistry
 from ..nlp.registry import NlpRuleRegistry
 from ..keywords.registry import KeywordRegistry
 from ..scanner import GuardrailScanner
@@ -22,6 +23,7 @@ class ScanOptions(BaseModel):
     include_regex: Optional[List[str]] = None
     include_nlp: Optional[List[str]] = None
     include_keywords: Optional[List[str]] = None
+    include_composites: List[str] = None
     # NEW: arbitrary metadata, e.g. {"filename": "...", "mime_type": "...", "size": 12345}
     file_meta: Optional[Dict[str, Any]] = None
 
@@ -51,6 +53,8 @@ class UsedRulesModel(BaseModel):
     regex: List[str]
     nlp: List[str]
     keywords: List[str]
+    composites: List[str]
+
 
 class CountsModel(BaseModel):
     total_matches: int
@@ -69,6 +73,8 @@ app = FastAPI(title="Regex Guardrail Service", version="1.0.0")
 _PATTERN_REG = PatternRegistry.load_builtin()
 _NLP_REG = NlpRuleRegistry.load_builtin()
 _KW_REG = KeywordRegistry.load_builtin()
+_COMPOSITE_REG = CompositeRegistry.load_builtin()
+
 
 def _select_rules(opts: Optional[ScanOptions]):
     """
@@ -77,14 +83,21 @@ def _select_rules(opts: Optional[ScanOptions]):
       - Else if options missing or no include_* provided => ALL regex + ALL NLP (friendly default).
       - Else => filter to includes.
     """
-    if (opts is None) or opts.scan_all or (not (opts.include_regex or opts.include_nlp)):
-        return _all_regex(), _all_nlp(), _all_keywords()
+    # if (opts is None) or opts.scan_all or (not (opts.include_regex or opts.include_nlp)):
+    #     return _all_regex(), _all_nlp(), _all_keywords()
+
+    if (opts is None) or opts.scan_all or not any(
+            [opts.include_regex, opts.include_nlp, getattr(opts, "include_keywords", None),
+             getattr(opts, "include_composites", None)]):
+        return _all_regex(), _all_nlp(), _all_keywords(), _all_composites()
 
     regex_defs = [p for p in _all_regex() if p.name in set(opts.include_regex or [])]
     nlp_rules = [r for r in _all_nlp() if r.name in set(opts.include_nlp or [])]
     keyword_defs = [k for k in _all_keywords() if k.name in set(opts.include_keywords or [])] \
         if (opts and opts.include_keywords is not None) else []
-    return regex_defs, nlp_rules, keyword_defs
+    composite_defs = [c for c in _all_composites() if c.name in set(opts.include_composites or [])] \
+        if (opts and opts.include_composites is not None) else []
+    return regex_defs, nlp_rules, keyword_defs, composite_defs
 
 
 def _all_regex():
@@ -101,6 +114,9 @@ def _all_nlp():
 def _all_keywords():
     return _KW_REG.list_all()
 
+def _all_composites():
+    return _COMPOSITE_REG.list_all()
+
 def _scan_and_optionally_redact(text: str, regex_defs,
                                 nlp_rules, redact: bool,
                                 *,
@@ -108,12 +124,14 @@ def _scan_and_optionally_redact(text: str, regex_defs,
                                 preproc_registry=None,
                                 validator_registry=None,
                                 keyword_defs=None,
+                                composite_defs = None,
                                 preprocess_context: Optional[Dict[str, Any]] = None):
     preproc_registry = preproc_registry or PreprocessorRegistry.load_builtin()
     validator_registry = validator_registry or ValidatorRegistry.load_builtin()
     scanner = GuardrailScanner(pattern_defs=regex_defs,
         nlp_rules=nlp_rules,
         keyword_defs=keyword_defs or [],            # NEW
+        composite_defs= composite_defs or [],       # NEW
         preprocessors=preprocessors or [],
         preproc_registry=preproc_registry,
         validators=validator_registry,)
@@ -144,7 +162,7 @@ def to_match_model(m: Dict[str, Any]) -> MatchModel:
 
 @app.post("/scan", response_model=ScanResponse)
 def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
-    regex_defs, nlp_rules, keyword_defs  = _select_rules(payload.options)
+    regex_defs, nlp_rules, keyword_defs, composite_defs   = _select_rules(payload.options)
     redact = bool(payload.options.redact) if payload.options else False
     matches_dicts, redacted = _scan_and_optionally_redact(
         payload.text,
@@ -152,7 +170,8 @@ def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
         nlp_rules,
         redact,
         preprocessors=payload.options.preprocessors if payload.options and "preprocessors" in  payload.options else None,
-        keyword_defs=keyword_defs)
+        keyword_defs=keyword_defs,
+        composite_defs = composite_defs)
     return ScanResponse(
         matches=[to_match_model(m) for m in matches_dicts],
         redacted_text=redacted,
@@ -161,6 +180,7 @@ def scan_text_endpoint(payload: ScanTextRequest = Body(...)):
             regex=[p.name for p in regex_defs],
             nlp=[r.name for r in nlp_rules],
             keywords=[k.name for k in keyword_defs],
+            composites=[c.name for c in composite_defs]
         ),
     )
 
@@ -172,7 +192,7 @@ def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid base64 or non-UTF8 content: {e}")
 
-    regex_defs, nlp_rules, keyword_defs = _select_rules(payload.options)
+    regex_defs, nlp_rules, keyword_defs, composite_defs = _select_rules(payload.options)
     redact = bool(payload.options.redact) if payload.options else False
     matches_dicts, redacted = _scan_and_optionally_redact(
         text,
@@ -180,7 +200,8 @@ def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
         nlp_rules,
         redact,
         preprocessors=payload.options.preprocessors if payload.options and "preprocessors" in  payload.options else None,
-        keyword_defs=keyword_defs)
+        keyword_defs=keyword_defs,
+        composite_defs= composite_defs)
 
     return ScanResponse(
         filename=payload.filename,
@@ -191,5 +212,6 @@ def scan_b64_endpoint(payload: ScanBase64Request = Body(...)):
             regex=[p.name for p in regex_defs],
             nlp=[r.name for r in nlp_rules],
             keywords=[k.name for k in keyword_defs],
+            composites=[c.name for c in composite_defs]
         ),
     )

@@ -1,22 +1,22 @@
 # 🛡️ InfoShield
 
-**InfoShield** is a modular **guardrail service** that detects and redacts sensitive information such as **PII, financial data, secrets, watermarks, and jailbreak prompts** using **regex patterns**, **exact match rules**, and optional **NLP (spaCy)** rules.
+**InfoShield** is a modular **guardrail service** that detects and redacts sensitive information such as **PII, financial data, secrets, watermarks, and jailbreak prompts** using **regex patterns**, **exact match rules**, **composite rules**, and optional **NLP (spaCy)** rules.  
 It supports **CLI, REST API (FastAPI), and GUI (PyQt5)**.
 
 ---
 
 ## ✨ Features
 
-* 🔍 **Regex-based detection**: email, phone, Aadhaar, PAN, credit card (Luhn validated), IPv4, JWT, AWS keys, and more.
-* 🎯 **Exact match detection**: watermark phrases, banned keywords, hardcoded secrets.
-* 🤖 **NLP support (spaCy)**: detect person names, prompt injections, jailbreak heuristics.
-* 🛠️ **Extensible**: easily add new regex patterns, NLP rules, or exact match lists.
-* 🖥️ **Multiple interfaces**:
-
-  * **CLI** for scripting and automation
-  * **REST API** with FastAPI
-  * **GUI** (PyQt5) to pick rules per user
-* 🔒 **Redaction**: configurable masking for detected entities.
+* 🔍 **Regex-based detection**: email, phone, Aadhaar, PAN, credit card (Luhn validated), IPv4, JWT, AWS keys, and more.  
+* 🎯 **Exact match detection**: watermark phrases, banned keywords, hardcoded secrets.  
+* 🔗 **Composite patterns**: combine multiple regexes/keywords with **AND / OR / NOT** logic for advanced scenarios (e.g., “internal only AND do not share”).  
+* 🤖 **NLP support (spaCy)**: detect person names, prompt injections, jailbreak heuristics.  
+* 🛠️ **Extensible**: easily add new regex patterns, composite rules, NLP rules, or exact match lists.  
+* 🖥️ **Multiple interfaces**:  
+  * **CLI** for scripting and automation  
+  * **REST API** with FastAPI  
+  * **GUI** (PyQt5) to pick rules per user  
+* 🔒 **Redaction**: configurable masking for detected entities.  
 
 ---
 
@@ -53,7 +53,7 @@ python -m info_shield.gui.app
 uvicorn info_shield.api.app:app --reload --port 8000
 ```
 
-➡️ Open [http://127.0.0.1:8080/docs](http://127.0.0.1:8080/docs) for Swagger UI.
+➡️ Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8080/docs) for Swagger UI.
 
 ### 5. Tests
 
@@ -151,6 +151,32 @@ EXACT_TERMS = [
 ```
 
 4. Implement loader in `ExactMatchRegistry` to scan for these terms in text.
+
+### ➕ Composite Rule
+Composite rules let you combine multiple sub-patterns with Boolean logic.
+```python
+
+from info_shield.model import CompositePatternDef, SubPattern
+import re
+
+def get_composites():
+    return [
+        CompositePatternDef(
+            name="wmk_internal_and_donotshare",
+            category="Watermark",
+            severity="low",
+            op="AND",
+            parts=[
+                SubPattern(name="A", regex=re.escape("internal only"), flags=re.IGNORECASE),
+                SubPattern(name="B", regex=re.escape("do not share"), flags=re.IGNORECASE),
+            ],
+            redact="[WATERMARK]"
+        )
+    ]
+```
+#### Supported operators:
+* AND, OR, NOT
+* Or free-form Boolean expressions via boolean_expr="(A && B) || !C"
 
 ---
 

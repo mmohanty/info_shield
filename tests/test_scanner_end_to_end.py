@@ -1,5 +1,5 @@
 from info_shield.scanner import GuardrailScanner
-from info_shield.registry import PatternRegistry
+from info_shield.patterns.registry import PatternRegistry
 
 
 def test_end_to_end(sample_text):

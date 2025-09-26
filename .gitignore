@@ -2,3 +2,7 @@
 /.env
 *.pyc
 *.DS_Store
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class

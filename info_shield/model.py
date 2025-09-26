@@ -63,6 +63,7 @@ class CompositePatternDef:
     redact: Optional[str] = "[REDACTED]"
     validators: List[str] = field(default_factory=list)
     preprocessors: Optional[List[str]] = None    # default preproc for all parts
+    proximity:int = None  # max distance in chars
 
 
 @dataclass

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Iterable
 from .base import BaseValidator
-from .builtin import LuhnValidator, JwtStructureValidator, EmailDomainAllowlistValidator
+from .builtin import LuhnValidator, JwtStructureValidator, EmailDomainAllowlistValidator, PasswordEntropyValidator
 
 class ValidatorRegistry:
     def __init__(self):
@@ -22,6 +22,7 @@ class ValidatorRegistry:
         reg.bulk([
             LuhnValidator(),
             JwtStructureValidator(),
+            PasswordEntropyValidator(),
             EmailDomainAllowlistValidator(allow=[]),  # empty allowlist by default
         ])
         return reg

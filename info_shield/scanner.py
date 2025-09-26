@@ -28,7 +28,12 @@ class GuardrailScanner:
         self.preproc_registry = preproc_registry or PreprocessorRegistry.load_builtin()
         self.default_preproc_chain = preprocessors or []
         self.validators = validators# ordered list of names
-        self._defs_by_name = {p.name: p for p in self.pattern_defs}
+        self._defs_by_name = {
+            **{p.name: p for p in self.pattern_defs},
+            **{k.name: k for k in self.keyword_defs},
+            **{c.name: c for c in self.composite_defs},
+            **{r.name: r for r in self.nlp_rules},
+        }
 
     @staticmethod
     def _line_col(text: str, index: int) -> Tuple[int, int]:
@@ -75,6 +80,12 @@ class GuardrailScanner:
     def _resolve_chain(self, explicit: Optional[List[str]]) -> Tuple[str, ...]:
         return tuple(self.default_preproc_chain if explicit is None else explicit)
 
+    def _within_proximity(self, hits_a, hits_b, max_chars=200):
+        for sa, se in hits_a:
+            for sb, eb in hits_b:
+                if abs(sa - eb) <= max_chars or abs(sb - se) <= max_chars:
+                    return True
+        return False
 
     def _scan_composites(self, text: str, *, context=None) -> List[MatchResult]:
         results: List[MatchResult] = []
@@ -111,6 +122,15 @@ class GuardrailScanner:
                 sub_hits[part.name] = hits
                 truth[part.name] = ok
                 confs[part.name] = part.confidence
+
+            # Proximity check (only if composite defines it)
+            if getattr(cdef, "proximity", None):
+                parts = list(cdef.parts)
+                if len(parts) == 2 and truth.get(parts[0].name) and truth.get(parts[1].name):
+                    hits_a = sub_hits[parts[0].name]
+                    hits_b = sub_hits[parts[1].name]
+                    if not self._within_proximity(hits_a, hits_b, cdef.proximity):
+                        continue  # fail if not close enough
 
             # decide overall success
             if cdef.boolean_expr:
@@ -173,6 +193,7 @@ class GuardrailScanner:
             results.append(mr)
 
         return results
+
     def _scan_regex(self, text: str, *, context=None) -> List[MatchResult]:
         results: List[MatchResult] = []
         cache: Dict[Tuple[str, ...], Tuple[str, List[int]]] = {}

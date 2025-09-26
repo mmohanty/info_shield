@@ -24,7 +24,7 @@ class PatternDef:
     description: str
     category: str
     severity: str  # low | medium | high | critical
-    regex: str
+    regexes: List[str]  # list of regexes
     flags: int = re.MULTILINE
     #validators: Tuple[Validator, ...] = ()
     validators: List[str] = field(default_factory=list)  # NEW
@@ -33,8 +33,8 @@ class PatternDef:
     partial_mask: bool = False
     confidence: float = 0.7  # 0.0–1.0 scale
 
-    def compile(self) -> Pattern[str]:
-        return re.compile(self.regex, self.flags)
+    def compile(self) -> List[Pattern[str]]:
+        return [re.compile(rx, self.flags or 0) for rx in self.regexes]
 
 
 LogicOp = Literal["AND", "OR"]  # (OPTIONAL: add "NAND","NOR" later)
@@ -42,7 +42,7 @@ LogicOp = Literal["AND", "OR"]  # (OPTIONAL: add "NAND","NOR" later)
 @dataclass
 class SubPattern:
     name: str                     # local label used in the expression e.g. A/B/C
-    regex: str
+    regexes: List[str]  # list of regexes
     flags: Optional[int] = None
     preprocessors: Optional[List[str]] = None   # override or inherit
     min_count: int = 1                           # support “at least N occurrences”

@@ -22,7 +22,9 @@ class GuardrailScanner:
         self.pattern_defs: List[PatternDef] = list(pattern_defs)
         self.keyword_defs = keyword_defs or []
         self.composite_defs = composite_defs or []  # NEW
-        self.compiled: Dict[str, Pattern[str]] = {p.name: p.compile() for p in self.pattern_defs}
+        self.compiled: Dict[str, List[Pattern[str]]] = {
+            p.name: p.compile() for p in self.pattern_defs
+        }
         self.nlp_rules: List[BaseNlpRule] = list(nlp_rules) if nlp_rules else []
         self.max_findings_per_pattern = max(1, int(max_findings_per_pattern))
         self.preproc_registry = preproc_registry or PreprocessorRegistry.load_builtin()
@@ -101,17 +103,21 @@ class GuardrailScanner:
                 chain = self._resolve_chain(
                     part.preprocessors if part.preprocessors is not None else cdef.preprocessors)
                 ptext, pmap = self._get_preprocessed(text, preproc_cache, chain, context=context)
-                rx = re.compile(part.regex, part.flags or 0)
+                # Compile all regexes
+                regexes = [re.compile(rx, part.flags or 0) for rx in part.regexes]
                 hits = []
                 count = 0
-                for m in rx.finditer(ptext):
-                    pstart, pend = m.start(), m.end()
-                    start = pmap[pstart]
-                    end = pmap[pend - 1] + 1
-                    hits.append((start, end))
-                    count += 1
-                    if count >= self.max_findings_per_pattern:
-                        break
+                # 🔑 NEW: support multiple regexes
+                for rx in regexes:
+
+                    for m in rx.finditer(ptext):
+                        pstart, pend = m.start(), m.end()
+                        start = pmap[pstart]
+                        end = pmap[pend - 1] + 1
+                        hits.append((start, end))
+                        count += 1
+                        if count >= self.max_findings_per_pattern:
+                            break
                 # evaluate subpattern success with min_count and optional NOT
                 ok = (len(hits) >= part.min_count)
                 if part.negate:
@@ -202,37 +208,43 @@ class GuardrailScanner:
             chain_names = self._resolve_chain_names(pdef.preprocessors)
             ptext, pmap = self._get_preprocessed(text, cache, chain_names)
 
-            regex = self.compiled[pdef.name]
-            count = 0
-            for m in regex.finditer(ptext):
-                value = m.group(1) if m.lastindex else m.group(0)
-                # if pdef.validators:
-                #     valid = all(v(value) for v in pdef.validators)
-                #     if valid is False:
-                #         continue
-                line, col = self._line_col(ptext, m.start())
-                mr = MatchResult(
-                    pattern=pdef.name,
-                    category=pdef.category,
-                    severity=pdef.severity,
-                    value=value,
-                    start=m.start(),
-                    end=m.end(),
-                    line=line,
-                    col=col,
-                    preview=self._preview(text, m.start(), m.end()),
-                    valid=None,
-                )
-                if self.validators is not None:
-                    mr = self._validate_match(mr, ptext)
-                else:
-                    mr.valid = True  # default when no validators are present
+            #regex = self.compiled[pdef.name]
+            regexes = self.compiled.get(pdef.name)
+            if not regexes:
+                regexes = pdef.compile()
+                self.compiled[pdef.name] = regexes
 
-                if mr.valid:  # <-- only add valid matches
-                    results.append(mr)
-                    count += 1
-                    if count >= self.max_findings_per_pattern:
-                        break
+            for rx in regexes:
+                count = 0
+                for m in rx.finditer(ptext):
+                    value = m.group(1) if m.lastindex else m.group(0)
+                    # if pdef.validators:
+                    #     valid = all(v(value) for v in pdef.validators)
+                    #     if valid is False:
+                    #         continue
+                    line, col = self._line_col(ptext, m.start())
+                    mr = MatchResult(
+                        pattern=pdef.name,
+                        category=pdef.category,
+                        severity=pdef.severity,
+                        value=value,
+                        start=m.start(),
+                        end=m.end(),
+                        line=line,
+                        col=col,
+                        preview=self._preview(text, m.start(), m.end()),
+                        valid=None,
+                    )
+                    if self.validators is not None:
+                        mr = self._validate_match(mr, ptext)
+                    else:
+                        mr.valid = True  # default when no validators are present
+
+                    if mr.valid:  # <-- only add valid matches
+                        results.append(mr)
+                        count += 1
+                        if count >= self.max_findings_per_pattern:
+                            break
         return results
 
     # if you implemented validators earlier:

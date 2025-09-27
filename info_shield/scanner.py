@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Iterable, List, Optional, Pattern, Tuple, Any
-import re
+import regex as re
 from .model import PatternDef, MatchResult, BaseNlpRule, KeywordDef, CompositePatternDef
 from .config import MAX_FINDINGS_PER_PATTERN
 from .preprocess.registry import apply_chain, PreprocessorRegistry

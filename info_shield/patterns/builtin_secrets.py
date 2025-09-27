@@ -9,7 +9,7 @@ def get_patterns() -> List[PatternDef]:
             description="AWS Access Key ID",
             category="Secrets",
             severity="critical",
-            regex=r"\bAKIA[0-9A-Z]{16}\b",
+            regexes=[r"\bAKIA[0-9A-Z]{16}\b"],
             redact="[AWS_ACCESS_KEY_ID]",
         ),
         PatternDef(
@@ -17,7 +17,7 @@ def get_patterns() -> List[PatternDef]:
             description="Possible AWS secret key (heuristic)",
             category="Secrets",
             severity="critical",
-            regex=r"(?i)(?:aws[_-]?secret[_-]?access[_-]?key\s*[:=]\s*)([A-Za-z0-9/+=]{40})",
+            regexes=[r"(?i)(?:aws[_-]?secret[_-]?access[_-]?key\s*[:=]\s*)([A-Za-z0-9/+=]{40})"],
             redact="[AWS_SECRET_ACCESS_KEY]",
         ),
         PatternDef(
@@ -25,7 +25,7 @@ def get_patterns() -> List[PatternDef]:
             description="JWT token",
             category="Secrets",
             severity="high",
-            regex=r"\beyJ[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\b",
+            regexes=[r"\beyJ[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\b"],
             redact="[JWT]",
         ),
     ]

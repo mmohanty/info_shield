@@ -1,0 +1,108 @@
+{
+  "info": {
+    "name": "InfoShield Validator Tests",
+    "_postman_id": "abcd-1234-efgh-5678",
+    "description": "Collection to test validators in InfoShield via /scan API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Scan CPF (Valid)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/scan",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"My CPF is 529.982.247-25\",\n  \"options\": {\"include_regex\": [\"brazil_cpf\"]}\n}"
+        }
+      }
+    },
+    {
+      "name": "Scan Aadhaar (Invalid)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/scan",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"My Aadhaar is 123412341234\",\n  \"options\": {\"include_regex\": [\"india_aadhaar\"]}\n}"
+        }
+      }
+    },
+    {
+      "name": "Scan IBAN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/scan",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"My IBAN is GB82 WEST 1234 5698 7654 32\",\n  \"options\": {\"include_regex\": [\"iban\"]}\n}"
+        }
+      }
+    },
+    {
+      "name": "Scan JWT",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/scan",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"text\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature\",\n  \"options\": {\"include_regex\": [\"jwt_token\"]}\n}"
+        }
+      }
+    },
+    {
+      "name": "Scan France TIN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/scan",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n \"text\": \"Mon numéro fiscal est 1234567890123\",\n \"options\": {\"include_regex\": [\"france_tin\"]}\n}"
+        }
+      }
+    },
+    {
+  "name": "Scan Colombia CDC",
+  "request": {
+    "method": "POST",
+    "header": [{ "key": "Content-Type", "value": "application/json" }],
+    "url": "{{base_url}}/scan",
+    "body": {
+      "mode": "raw",
+      "raw": "{\n \"text\": \"My Colombia CDC number is 1234567890\",\n \"options\": {\"include_regex\": [\"colombia_cdc\"]}\n}"
+    }
+  }
+}
+
+  ]
+}

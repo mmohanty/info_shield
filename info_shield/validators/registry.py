@@ -1,7 +1,16 @@
 from __future__ import annotations
 from typing import Dict, Iterable
+
+from .aadhaar_validator import AadhaarValidator
 from .base import BaseValidator
-from .builtin import LuhnValidator, JwtStructureValidator, EmailDomainAllowlistValidator, PasswordEntropyValidator
+from .builtin import JwtStructureValidator
+from .cpf_validator import CpfValidator
+from .email_domain_allowlist import EmailDomainAllowlistValidator
+from .hetu_validator import HetuValidator
+from .iban_validator import IbanValidator
+from .luhn_validator import LuhnValidator
+from .password_entropy import PasswordEntropyValidator
+
 
 class ValidatorRegistry:
     def __init__(self):
@@ -23,6 +32,10 @@ class ValidatorRegistry:
             LuhnValidator(),
             JwtStructureValidator(),
             PasswordEntropyValidator(),
+            CpfValidator(),
+            HetuValidator(),
+            AadhaarValidator(),
+            IbanValidator(),
             EmailDomainAllowlistValidator(allow=[]),  # empty allowlist by default
         ])
         return reg

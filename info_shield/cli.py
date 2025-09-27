@@ -2,7 +2,8 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-from .registry import PatternRegistry, NlpRuleRegistry
+from .patterns.registry import PatternRegistry
+from .nlp.registry import NlpRuleRegistry
 from .scanner import GuardrailScanner
 from .redactor import Redactor
 

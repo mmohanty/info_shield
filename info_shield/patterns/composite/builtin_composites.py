@@ -1,5 +1,5 @@
 # info_shield/patterns/builtin_composites.py
-import re
+import regex as re
 from info_shield.model import CompositePatternDef, SubPattern
 
 # username regex (captures user token)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Iterable
-import json, os, re
+import json, os
+import regex as re
 from ..model import PatternDef
 
 # Default phrases (you can replace with your watermark strings)

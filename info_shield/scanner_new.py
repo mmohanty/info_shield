@@ -1,5 +1,5 @@
 # scanner.py
-import re
+import regex as re
 import unicodedata
 from typing import Dict, List, Pattern, Tuple, Callable, Optional
 

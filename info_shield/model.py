@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Pattern, List, Literal
-import re
+import regex as re
 from .config import PARTIAL_MASK_CHAR, PARTIAL_MASK_KEEP_LAST
 
 Validator = Callable[[str], bool]

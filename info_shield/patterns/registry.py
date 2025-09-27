@@ -26,6 +26,7 @@ class PatternRegistry:
         from ..patterns.builtin_network import get_patterns as net
         from ..patterns.builtin_safety import get_patterns as safety
         from ..patterns.builtin_exact import get_patterns as exact
+        from ..patterns.global_id_patterns import get_patterns as global_pattern
        # from ..patterns.builtin_composites import get_composites as composite
 
         reg = PatternRegistry()
@@ -35,5 +36,6 @@ class PatternRegistry:
         reg.bulk_register(net())
         reg.bulk_register(safety())
         reg.bulk_register(exact())
+        reg.bulk_register(global_pattern())
         #reg.bulk_register(composite())
         return reg

@@ -53,7 +53,7 @@ PATTERN_DEFS: List[PatternDef] = [
         severity="high",
         flags=0,
         description="Canada Social Insurance Number (SIN)",
-        validators=["luhn_validator"],  # SIN uses Luhn
+        validators=["luhn-validator"],  # SIN uses Luhn
     ),
     PatternDef(
         name="china_passport",
@@ -352,7 +352,7 @@ PATTERN_DEFS: List[PatternDef] = [
         severity="critical",
         flags=0,
         description="Credit card number (Visa, MasterCard, Amex, Discover)",
-        validators=["luhn_validator"],
+        validators=["luhn-validator"],
     ),
     PatternDef(
         name="financial_account_number_generic",

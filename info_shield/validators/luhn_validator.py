@@ -4,7 +4,7 @@ from .base import BaseValidator, ValidationResult
 import regex as re
 
 class LuhnValidator(BaseValidator):
-    name = "luhn"
+    name = "luhn-validator"
     def validate(self, value: str, *, context: Dict[str, Any]) -> ValidationResult:
         digits = re.sub(r"\D+", "", value)
         if len(digits) < 12:  # keep conservative

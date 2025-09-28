@@ -185,7 +185,7 @@ class GuardrailScanner:
                 end=end,
                 line=text.count("\n", 0, start) + 1,
                 col=start - (text.rfind("\n", 0, start) + 1) + 1,
-                preview=text[max(0, start - 24):start] + "⟦" + value + "⟧" + text[end:end + 24],
+                preview=text[max(0, start - 24):start] + "[" + value + "]" + text[end:end + 24],
                 valid=True,
             )
             mr.likelihood = likelihood
@@ -308,7 +308,7 @@ class GuardrailScanner:
                     end=end,
                     line=text.count("\n", 0, start) + 1,
                     col=start - (text.rfind("\n", 0, start) + 1) + 1,
-                    preview=text[max(0, start - 24):start] + "⟦" + value + "⟧" + text[end:end + 24],
+                    preview=text[max(0, start - 24):start] + "[" + value + "]" + text[end:end + 24],
                     valid=None
                 )
                 if self.validators is not None:

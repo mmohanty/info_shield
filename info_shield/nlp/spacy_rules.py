@@ -22,7 +22,7 @@ class PersonNameNerRule(BaseNlpRule):
                 start, end = ent.start_char, ent.end_char
                 line = text.count("\n", 0, start) + 1
                 col = start - (text.rfind("\n", 0, start) + 1)
-                preview = text[max(0, start-24):start] + "⟦" + text[start:end] + "⟧" + text[end:min(len(text), end+24)]
+                preview = text[max(0, start-24):start] + "[" + text[start:end] + "]" + text[end:min(len(text), end+24)]
                 out.append(MatchResult(
                     pattern=self.name,
                     category=self.category,

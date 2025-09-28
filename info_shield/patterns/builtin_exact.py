@@ -34,7 +34,7 @@ def _patterns_from_list(
             description=f'Exact match: "{phrase}"',
             category=category,
             severity=severity,
-            regex=regex,
+            regexes=[regex],
             flags=flags,
             # redaction token can be customized; partial masking usually not useful here
             redact="[WATERMARK]",

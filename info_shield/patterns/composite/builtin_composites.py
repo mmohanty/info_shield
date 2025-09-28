@@ -27,9 +27,9 @@ def get_composites():
             severity="low",
             op="AND",
             parts=[
-                SubPattern(name="A", regex=re.escape("internal only"), flags=re.IGNORECASE,
+                SubPattern(name="A", regexes=[re.escape("internal only")], flags=re.IGNORECASE,
                            preprocessors=["strip_zero_width","normalize_whitespace","lower"], confidence=0.7),
-                SubPattern(name="B", regex=re.escape("do not share"), flags=re.IGNORECASE,
+                SubPattern(name="B", regexes=[re.escape("do not share")], flags=re.IGNORECASE,
                            preprocessors=["strip_zero_width","normalize_whitespace","lower"], confidence=0.7),
             ],
             redact="[WATERMARK]"
@@ -40,8 +40,8 @@ def get_composites():
             severity="high",
             boolean_expr="A || B",
             parts=[
-                SubPattern(name="A", regex=re.escape("BEGIN PRIVATE KEY"), flags=re.IGNORECASE, confidence=0.95),
-                SubPattern(name="B", regex=r"\b[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b", confidence=0.8),
+                SubPattern(name="A", regexes=[re.escape("BEGIN PRIVATE KEY")], flags=re.IGNORECASE, confidence=0.95),
+                SubPattern(name="B", regexes=[r"\b[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b"], confidence=0.8),
             ],
             validators=["jwt_struct"],  # optional: validate if B was the one that matched
             redact="[SECRET]"
@@ -52,9 +52,9 @@ def get_composites():
             severity="medium",
             boolean_expr="A && B && !C",
             parts=[
-                SubPattern(name="A", regex=re.escape("policy")),
-                SubPattern(name="B", regex=re.escape("procedure")),
-                SubPattern(name="C", regex=re.escape("demo-only"), negate=False),
+                SubPattern(name="A", regexes=[re.escape("policy")]),
+                SubPattern(name="B", regexes=[re.escape("procedure")]),
+                SubPattern(name="C", regexes=[re.escape("demo-only")], negate=False),
             ],
         ),
         CompositePatternDef(
@@ -66,14 +66,14 @@ def get_composites():
             parts=[
                 SubPattern(
                     name="A",
-                    regex=USERNAME_RE,
+                    regexes=[USERNAME_RE],
                     flags=re.IGNORECASE | re.VERBOSE,
                     preprocessors=["strip_zero_width", "normalize_whitespace"],
                     confidence=0.7,
                 ),
                 SubPattern(
                     name="B",
-                    regex=PASSWORD_RE,
+                    regexes=[PASSWORD_RE],
                     flags=re.IGNORECASE | re.VERBOSE,
                     preprocessors=["strip_zero_width", "normalize_whitespace"],
                     confidence=0.9,

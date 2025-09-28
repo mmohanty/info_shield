@@ -41,7 +41,7 @@ class PromptInjectionHeuristicsRule(BaseNlpRule):
             sev = "critical" if cluster >= 3 else ("high" if cluster == 2 else self.severity)
             line = text.count("\n", 0, start) + 1
             col = start - (text.rfind("\n", 0, start) + 1) + 1
-            preview = text[max(0, start-24):start] + "⟦" + text[start:end] + "⟧" + text[end:min(len(text), end+24)]
+            preview = text[max(0, start-24):start] + "[" + text[start:end] + "]" + text[end:min(len(text), end+24)]
             out.append(MatchResult(
                 pattern=self.name, category=self.category, severity=sev,
                 value=text[start:end], start=start, end=end,
